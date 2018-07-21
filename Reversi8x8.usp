@@ -1,0 +1,364 @@
+/**
+ * Module: Reversi 8x8 Grid Game Processor
+ * Description: Simple Reversi/Othello implementation
+ * Programmer: TG
+ * Date: 2018-07-21
+**/
+
+#SYMBOL_NAME "Reversi 8x8 Processor"
+#CATEGORY "46" "Games" 
+
+#DEFAULT_VOLATILE
+#ENABLE_STACK_CHECKING
+#ENABLE_TRACE
+
+#DEFINE_CONSTANT TRUE   1
+#DEFINE_CONSTANT FALSE  0
+
+#DEFINE_CONSTANT CHECK_DIRECTION_NORTH       1
+#DEFINE_CONSTANT CHECK_DIRECTION_SOUTH       2
+#DEFINE_CONSTANT CHECK_DIRECTION_WEST        3
+#DEFINE_CONSTANT CHECK_DIRECTION_EAST        4
+#DEFINE_CONSTANT CHECK_DIRECTION_NORTH_WEST  5
+#DEFINE_CONSTANT CHECK_DIRECTION_NORTH_EAST  6
+#DEFINE_CONSTANT CHECK_DIRECTION_SOUTH_WEST  7
+#DEFINE_CONSTANT CHECK_DIRECTION_SOUTH_EAST  8
+
+DIGITAL_INPUT restart;
+DIGITAL_INPUT grid[64];
+
+DIGITAL_OUTPUT finished;
+ANALOG_OUTPUT player, winner;
+ANALOG_OUTPUT scores[2];
+ANALOG_OUTPUT states[64];
+
+INTEGER _scores[2];
+INTEGER _states[64];
+
+FUNCTION UpdateAndRecalculate()
+{
+    INTEGER n;
+    
+    // reset scores
+    SetArray(_scores, 0);
+    
+    for (n = 1 to 64)
+    {
+        // add up scores for each of the states for the player index
+        // in the array
+        _scores[_states[n]] = _scores[_states[n]] + 1;
+        states[n] = _states[n]; // update state
+    }
+    
+    // set scores to the ouptuts
+    scores[1] = _scores[1];
+    scores[2] = _scores[2];
+}
+
+FUNCTION SwitchPlayer()
+{
+    player = ((player >> 1) ^ 1) + 1; // bitflip
+}
+
+INTEGER_FUNCTION GetIndexByRowAndColumn(INTEGER row, INTEGER column)
+{
+    return ((8 * (row - 1)) + column);
+}
+
+INTEGER_FUNCTION GetStateByRowAndColumn(INTEGER row, INTEGER column)
+{
+    return (_states[GetIndexByRowAndColumn(row, column)]);
+}
+
+FUNCTION SetStateByRowAndColumn(INTEGER row, INTEGER column, INTEGER slotType)
+{
+    _states[GetIndexByRowAndColumn(row, column)] = slotType;
+}
+
+INTEGER_FUNCTION AttemptMove(INTEGER direction, INTEGER playerIndex, INTEGER row, INTEGER column)
+{
+    INTEGER opponentSlot, slotType;
+    INTEGER r, c;
+    
+    r = row;
+    c = column;
+    
+    cswitch (direction)
+    {
+        case (CHECK_DIRECTION_NORTH):
+        {
+            while (r > 1)
+            {
+                r = r - 1;
+                slotType = GetStateByRowAndColumn(r, c);
+                if (!slotType) { break; }
+                
+                if (slotType != playerIndex)
+                    opponentSlot = TRUE;
+                else if (opponentSlot)
+                {
+                    while (r < row)
+                    {
+                        SetStateByRowAndColumn(r, c, playerIndex);
+                        r = r + 1;
+                    }
+                    return (TRUE);
+                }
+            }
+            break;
+        }
+        case (CHECK_DIRECTION_SOUTH):
+        {
+            while (r < 8)
+            {
+                r = r + 1;
+                slotType = GetStateByRowAndColumn(r, c);
+                if (!slotType) { break; }
+                
+                if (slotType != playerIndex)
+                    opponentSlot = TRUE;
+                else if (opponentSlot)
+                {
+                    while (r > row)
+                    {
+                        SetStateByRowAndColumn(r, c, playerIndex);
+                        r = r - 1;
+                    }
+                    return (TRUE);
+                }
+            }
+            break;
+        }
+        case (CHECK_DIRECTION_WEST):
+        {
+            while (c > 1)
+            {
+                c = c - 1;
+                slotType = GetStateByRowAndColumn(r, c);
+                if (!slotType) { break; }
+                
+                if (slotType != playerIndex)
+                    opponentSlot = TRUE;
+                else if (opponentSlot)
+                {
+                    while (c < column)
+                    {
+                        SetStateByRowAndColumn(r, c, playerIndex);
+                        c = c + 1;
+                    }
+                    return (TRUE);
+                }
+            }
+            break;
+        }
+        case (CHECK_DIRECTION_EAST):
+        {
+            while (c < 8)
+            {
+                c = c + 1;
+                slotType = GetStateByRowAndColumn(r, c);
+                if (!slotType) { break; }
+                
+                if (slotType != playerIndex)
+                    opponentSlot = TRUE;
+                else if (opponentSlot)
+                {
+                    while (c > column)
+                    {
+                        SetStateByRowAndColumn(r, c, playerIndex);
+                        c = c - 1;
+                    }
+                    return (TRUE);
+                }
+            }
+            break;
+        }
+        case (CHECK_DIRECTION_NORTH_WEST):
+        {
+            while (r > 1 && c > 1)
+            {
+                r = r - 1;
+                c = c - 1;
+                slotType = GetStateByRowAndColumn(r, c);
+                if (!slotType) { break; }
+                
+                if (slotType != playerIndex)
+                    opponentSlot = TRUE;
+                else if (opponentSlot)
+                {
+                    while (r < row)
+                    {
+                        SetStateByRowAndColumn(r, c, playerIndex);
+                        r = r + 1;
+                        c = c + 1;
+                    }
+                    return (TRUE);
+                }
+            }
+            break;
+        }
+        case (CHECK_DIRECTION_NORTH_EAST):
+        {
+            while (r < 8 && c < 8)
+            {
+                r = r + 1;
+                c = c + 1;
+                slotType = GetStateByRowAndColumn(r, c);
+                if (!slotType) { break; }
+                
+                if (slotType != playerIndex)
+                    opponentSlot = TRUE;
+                else if (opponentSlot)
+                {
+                    while (r > row)
+                    {
+                        SetStateByRowAndColumn(r, c, playerIndex);
+                        r = r - 1;
+                        c = c - 1;
+                    }
+                    return (TRUE);
+                }
+            }
+            break;
+        }
+        case (CHECK_DIRECTION_SOUTH_WEST):
+        {
+            while (r < 8 && c > 1)
+            {
+                r = r + 1;
+                c = c - 1;
+                slotType = GetStateByRowAndColumn(r, c);
+                if (!slotType) { break; }
+                
+                if (slotType != playerIndex)
+                    opponentSlot = TRUE;
+                else if (opponentSlot)
+                {
+                    while (r > row)
+                    {
+                        SetStateByRowAndColumn(r, c, playerIndex);
+                        r = r - 1;
+                        c = c + 1;
+                    }
+                    return (TRUE);
+                }
+            }
+            break;
+        }
+        case (CHECK_DIRECTION_SOUTH_EAST):
+        {
+            while (r > 1 && c < 8)
+            {
+                r = r - 1;
+                c = c + 1;
+                slotType = GetStateByRowAndColumn(r, c);
+                if (!slotType) { break; }
+                
+                if (slotType != playerIndex)
+                    opponentSlot = TRUE;
+                else if (opponentSlot)
+                {
+                    while (r < row)
+                    {
+                        SetStateByRowAndColumn(r, c, playerIndex);
+                        r = r + 1;
+                        c = c - 1;
+                    }
+                    return (TRUE);
+                }
+            }
+            break;
+        }
+    }
+    
+    return (FALSE);
+}
+
+FUNCTION CheckForFinish(INTEGER playerIndex)
+{
+    // check if the either opponent has been cleared from the board
+    // or if the score for # of markers between each player equals the
+    // size of the board (indicating that the board is filled in)
+    if ((_scores[1] = 0)
+        || (_scores[2] = 0)
+        || (_scores[1] + _scores[2] = 64))
+    {
+        if (_scores[1] > _scores[2])
+            winner = 1;
+        else
+            winner = 2;
+            
+        // pulse finished output
+        Pulse(1, finished);
+    }
+}
+
+FUNCTION Initialize()
+{
+    player = 1; // reset player
+    
+    // reset
+    SetArray(_scores, 0);
+    SetArray(_states, 0);
+    
+    // set initial markers for game start
+    _states[GetIndexByRowAndColumn(4, 4)] = 1;
+    _states[GetIndexByRowAndColumn(4, 5)] = 2;
+    _states[GetIndexByRowAndColumn(5, 4)] = 2;
+    _states[GetIndexByRowAndColumn(5, 5)] = 1;
+    
+    UpdateAndRecalculate();
+}
+
+PUSH restart
+{
+    Initialize();
+}
+
+PUSH grid
+{
+    INTEGER n, changed;
+    INTEGER row, column;
+    
+    n = GetLastModifiedArrayIndex();
+    if (_states[n] = 0)
+    {
+        row = (n + 7) / 8;
+        column = n - ((row - 1) * 8);
+        
+        changed = FALSE;
+        for (n = 1 to 8)
+        {
+            // check each of the 8 directions to see if the current
+            // grid cell indicates a valid move and set a flag if
+            // the internal board state was changed as a result
+            if (AttemptMove(n, player, row, column))
+            {
+                changed = TRUE;
+            }
+        }
+        
+        // update the grid, check for game finish, and switch
+        // current player index only if the board has changed
+        if (changed)
+        {
+            // add player marker
+            SetStateByRowAndColumn(row, column, player);
+            
+            UpdateAndRecalculate();
+            SwitchPlayer();
+            
+            // check if the game is finished after switching turns
+            // because previous player had already made a move
+            // (we want to see if the next player is able to make
+            // any moves.)
+            CheckForFinish(player);
+        }
+    }
+}
+
+FUNCTION Main()
+{
+    WaitForInitializationComplete();
+    Initialize(); // set outputs for initial state
+}
